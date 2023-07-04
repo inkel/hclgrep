@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 )
@@ -111,11 +112,14 @@ func realMain(ctx context.Context, pattern string, paths ...string) error {
 	return nil
 }
 
+var styleInfo = lipgloss.NewStyle().Bold(true)
+
 func printFound(b *hclsyntax.Block, src []byte) {
 	r := b.Range()
 	var s strings.Builder
 
-	fmt.Fprintf(&s, "%s:%d:%d:\n", r.Filename, r.Start.Line, r.Start.Column)
+	s.WriteString(styleInfo.Render(fmt.Sprintf("%s:%d:%d:", r.Filename, r.Start.Line, r.Start.Column)))
+	s.WriteRune('\n')
 	bs := r.SliceBytes(src)
 	s.Write(bs)
 
