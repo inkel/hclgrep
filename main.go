@@ -98,6 +98,9 @@ func grep(ps []string, path string, src []byte) error {
 
 		for _, l := range b.Labels {
 			pi++
+			if len(ps) >= pi {
+				break
+			}
 			found = ps[pi] == "*" || ps[pi] == l
 			if !found {
 				break
