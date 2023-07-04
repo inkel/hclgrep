@@ -51,50 +51,7 @@ func realMain(ctx context.Context, args []string) error {
 					return err
 				}
 
-				f, d := hclsyntax.ParseConfig(src, path, hcl.Pos{Line: 1, Column: 1})
-				if d.HasErrors() {
-					return fmt.Errorf("parsing %s: %s", path, d.Error())
-				}
-
-				for _, b := range f.Body.(*hclsyntax.Body).Blocks {
-					if ps[0] != "*" && ps[0] != b.Type {
-						continue
-					}
-
-					if len(ps) < 2 {
-						printFound(b, src)
-						continue
-					}
-
-					var pi int
-					var found bool
-
-					for _, l := range b.Labels {
-						pi++
-						found = ps[pi] == "*" || ps[pi] == l
-						if !found {
-							break
-						}
-					}
-
-					if !found {
-						continue
-					}
-
-					pi++
-
-					if pi == len(ps) {
-						printFound(b, src)
-						continue
-					}
-
-					for a := range b.Body.Attributes {
-						if ps[pi] == a {
-							printFound(b, src)
-							break
-						}
-					}
-				}
+				return grep(ps, path, src)
 			}
 
 			return nil
@@ -104,6 +61,55 @@ func realMain(ctx context.Context, args []string) error {
 	for _, path := range paths {
 		if err := fs.WalkDir(os.DirFS(path), ".", walkFn(path)); err != nil {
 			return fmt.Errorf("walking %s: %w", path, err)
+		}
+	}
+
+	return nil
+}
+
+func grep(ps []string, path string, src []byte) error {
+	f, d := hclsyntax.ParseConfig(src, path, hcl.Pos{Line: 1, Column: 1})
+	if d.HasErrors() {
+		return fmt.Errorf("parsing %s: %s", path, d.Error())
+	}
+
+	for _, b := range f.Body.(*hclsyntax.Body).Blocks {
+		if ps[0] != "*" && ps[0] != b.Type {
+			continue
+		}
+
+		if len(ps) < 2 {
+			printFound(b, src)
+			continue
+		}
+
+		var pi int
+		var found bool
+
+		for _, l := range b.Labels {
+			pi++
+			found = ps[pi] == "*" || ps[pi] == l
+			if !found {
+				break
+			}
+		}
+
+		if !found {
+			continue
+		}
+
+		pi++
+
+		if pi == len(ps) {
+			printFound(b, src)
+			continue
+		}
+
+		for a := range b.Body.Attributes {
+			if ps[pi] == a {
+				printFound(b, src)
+				break
+			}
 		}
 	}
 
