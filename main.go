@@ -32,6 +32,7 @@ func realMain(ctx context.Context, args []string) error {
 	}
 
 	pattern, paths := args[0], args[1:]
+	ps := strings.Split(pattern, ".")
 
 	walkFn := func(root string) fs.WalkDirFunc {
 		return func(path string, d fs.DirEntry, err error) error {
@@ -54,8 +55,6 @@ func realMain(ctx context.Context, args []string) error {
 				if d.HasErrors() {
 					return fmt.Errorf("parsing %s: %s", path, d.Error())
 				}
-
-				ps := strings.Split(pattern, ".")
 
 				for _, b := range f.Body.(*hclsyntax.Body).Blocks {
 					if ps[0] != "*" && ps[0] != b.Type {
