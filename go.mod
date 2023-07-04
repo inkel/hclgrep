@@ -1,4 +1,4 @@
-module github.com/inkel/hcl-grep
+module github.com/inkel/hclgrep
 
 go 1.20
 
