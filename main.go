@@ -63,7 +63,7 @@ func realMain(ctx context.Context, pattern string, paths ...string) error {
 					}
 
 					if len(ps) < 2 {
-						printFound(b)
+						printFound(b, src)
 						continue
 					}
 
@@ -85,13 +85,13 @@ func realMain(ctx context.Context, pattern string, paths ...string) error {
 					pi++
 
 					if pi == len(ps) {
-						printFound(b)
+						printFound(b, src)
 						continue
 					}
 
 					for a := range b.Body.Attributes {
 						if ps[pi] == a {
-							printFound(b)
+							printFound(b, src)
 							break
 						}
 					}
@@ -111,20 +111,13 @@ func realMain(ctx context.Context, pattern string, paths ...string) error {
 	return nil
 }
 
-func printFound(b *hclsyntax.Block) {
+func printFound(b *hclsyntax.Block, src []byte) {
 	r := b.Range()
 	var s strings.Builder
 
-	fmt.Fprintf(&s, "%s:%d:%d: %s", r.Filename, r.Start.Line, r.Start.Column, b.Type)
-
-	for _, l := range b.Labels {
-		fmt.Fprintf(&s, " %q", l)
-	}
+	fmt.Fprintf(&s, "%s:%d:%d:\n", r.Filename, r.Start.Line, r.Start.Column)
+	bs := r.SliceBytes(src)
+	s.Write(bs)
 
 	fmt.Println(s.String())
-
-	// blk := b.AsHCLBlock()
-	// fmt.Printf("%T\n", blk)
-	// _, ok := blk.Body.(*hclwrite.Body)
-	// fmt.Println(ok)
 }
