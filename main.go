@@ -69,8 +69,23 @@ func realMain(ctx context.Context, args []string) error {
 	}
 
 	for _, path := range paths {
-		if err := fs.WalkDir(os.DirFS(path), ".", walkFn(path)); err != nil {
-			return fmt.Errorf("walking %s: %w", path, err)
+		fi, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
+
+		if fi.IsDir() {
+			if err := fs.WalkDir(os.DirFS(path), ".", walkFn(path)); err != nil {
+				return fmt.Errorf("walking %s: %w", path, err)
+			}
+		} else {
+			src, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			if err := grep(os.Stdout, ps, path, src); err != nil {
+				return err
+			}
 		}
 	}
 
