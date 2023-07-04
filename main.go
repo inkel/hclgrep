@@ -41,7 +41,7 @@ func realMain(ctx context.Context, args []string) error {
 			return err
 		}
 
-		return grep(ps, "-", src)
+		return grep(os.Stdout, ps, "-", src)
 	}
 
 	walkFn := func(root string) fs.WalkDirFunc {
@@ -61,7 +61,7 @@ func realMain(ctx context.Context, args []string) error {
 					return err
 				}
 
-				return grep(ps, path, src)
+				return grep(os.Stdout, ps, path, src)
 			}
 
 			return nil
@@ -77,7 +77,7 @@ func realMain(ctx context.Context, args []string) error {
 	return nil
 }
 
-func grep(ps []string, path string, src []byte) error {
+func grep(w io.Writer, ps []string, path string, src []byte) error {
 	f, d := hclsyntax.ParseConfig(src, path, hcl.Pos{Line: 1, Column: 1})
 	if d.HasErrors() {
 		return fmt.Errorf("parsing %s: %s", path, d.Error())
@@ -89,7 +89,7 @@ func grep(ps []string, path string, src []byte) error {
 		}
 
 		if len(ps) < 2 {
-			printFound(b, src)
+			printFound(w, b, src)
 			continue
 		}
 
@@ -113,13 +113,13 @@ func grep(ps []string, path string, src []byte) error {
 
 		pi++
 		if pi == len(b.Labels) {
-			printFound(b, src)
+			printFound(w, b, src)
 			continue
 		}
 
 		for a := range b.Body.Attributes {
 			if ps[pi] == a {
-				printFound(b, src)
+				printFound(w, b, src)
 				break
 			}
 		}
@@ -130,14 +130,12 @@ func grep(ps []string, path string, src []byte) error {
 
 var styleInfo = lipgloss.NewStyle().Bold(true)
 
-func printFound(b *hclsyntax.Block, src []byte) {
+func printFound(w io.Writer, b *hclsyntax.Block, src []byte) {
 	r := b.Range()
-	var s strings.Builder
 
-	s.WriteString(styleInfo.Render(fmt.Sprintf("%s:%d:%d:", r.Filename, r.Start.Line, r.Start.Column)))
-	s.WriteRune('\n')
+	fmt.Fprintln(w, styleInfo.Render(fmt.Sprintf("%s:%d:%d:", r.Filename, r.Start.Line, r.Start.Column)))
+
 	bs := r.SliceBytes(src)
-	s.Write(bs)
-
-	fmt.Println(s.String())
+	w.Write(bs)
+	w.Write([]byte{'\n'})
 }
