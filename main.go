@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/signal"
@@ -33,6 +34,15 @@ func realMain(ctx context.Context, args []string) error {
 
 	pattern, paths := args[0], args[1:]
 	ps := strings.Split(pattern, ".")
+
+	if len(paths) == 0 { // read stdin
+		src, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return err
+		}
+
+		return grep(ps, "-", src)
+	}
 
 	walkFn := func(root string) fs.WalkDirFunc {
 		return func(path string, d fs.DirEntry, err error) error {
