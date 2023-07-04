@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -15,16 +16,8 @@ import (
 )
 
 func main() {
-	var (
-		pattern = "module.*.cluster_name"
-		path    = "/Users/inkel/dev/grafana/repos/deployment_tools/terraform/clusters/prod-us-west-0"
-	)
-
-	pattern = os.Args[1]
-	path = os.Args[2]
-
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
-	err := realMain(ctx, pattern, path)
+	err := realMain(ctx, os.Args[1:])
 	cancel()
 
 	if err != nil {
@@ -33,7 +26,13 @@ func main() {
 	}
 }
 
-func realMain(ctx context.Context, pattern string, paths ...string) error {
+func realMain(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		return errors.New("not enough arguments")
+	}
+
+	pattern, paths := args[0], args[1:]
+
 	walkFn := func(root string) fs.WalkDirFunc {
 		return func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
