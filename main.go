@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -16,9 +17,15 @@ import (
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 )
 
+// TODO remove this from global state
+var list bool
+
 func main() {
+	flag.BoolVar(&list, "l", false, "only list filenames with results")
+	flag.Parse()
+
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
-	err := realMain(ctx, os.Args[1:])
+	err := realMain(ctx, flag.Args())
 	cancel()
 
 	if err != nil {
@@ -150,7 +157,14 @@ func grep(w io.Writer, ps []string, path string, src []byte) error {
 		return fmt.Errorf("parsing %s: %s", path, d.Error())
 	}
 
-	for _, b := range find(ps, f.Body.(*hclsyntax.Body).Blocks) {
+	blks := find(ps, f.Body.(*hclsyntax.Body).Blocks)
+
+	if list && len(blks) > 0 {
+		fmt.Fprintln(w, path)
+		return nil
+	}
+
+	for _, b := range blks {
 		printFound(w, b, src)
 	}
 

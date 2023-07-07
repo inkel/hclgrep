@@ -13,7 +13,7 @@ go install github.com/inkel/hclgrep@latest
 
 ## Usage
 ```
-hclgrep <pattern> [path]
+hclgrep [-l] <pattern> [path]
 ```
 
 ## License
