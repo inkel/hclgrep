@@ -92,19 +92,16 @@ func realMain(ctx context.Context, args []string) error {
 	return nil
 }
 
-func grep(w io.Writer, ps []string, path string, src []byte) error {
-	f, d := hclsyntax.ParseConfig(src, path, hcl.Pos{Line: 1, Column: 1})
-	if d.HasErrors() {
-		return fmt.Errorf("parsing %s: %s", path, d.Error())
-	}
+func find(ps []string, blocks hclsyntax.Blocks) hclsyntax.Blocks {
+	var res hclsyntax.Blocks
 
-	for _, b := range f.Body.(*hclsyntax.Body).Blocks {
+	for _, b := range blocks {
 		if ps[0] != "*" && ps[0] != b.Type {
 			continue
 		}
 
 		if len(ps) < 2 {
-			printFound(w, b, src)
+			res = append(res, b)
 			continue
 		}
 
@@ -126,18 +123,35 @@ func grep(w io.Writer, ps []string, path string, src []byte) error {
 			continue
 		}
 
-		pi++
-		if pi == len(b.Labels) {
-			printFound(w, b, src)
+		if len(ps) <= len(b.Labels)+1 {
+			res = append(res, b)
 			continue
 		}
 
+		pi = len(b.Labels) + 1
+
 		for a := range b.Body.Attributes {
 			if ps[pi] == a {
-				printFound(w, b, src)
-				break
+				res = append(res, b)
 			}
 		}
+
+		if len(find(ps[pi:], b.Body.Blocks)) > 0 {
+			res = append(res, b)
+		}
+	}
+
+	return res
+}
+
+func grep(w io.Writer, ps []string, path string, src []byte) error {
+	f, d := hclsyntax.ParseConfig(src, path, hcl.Pos{Line: 1, Column: 1})
+	if d.HasErrors() {
+		return fmt.Errorf("parsing %s: %s", path, d.Error())
+	}
+
+	for _, b := range find(ps, f.Body.(*hclsyntax.Body).Blocks) {
+		printFound(w, b, src)
 	}
 
 	return nil
