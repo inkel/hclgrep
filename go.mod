@@ -1,14 +1,16 @@
 module github.com/inkel/hclgrep
 
-go 1.20
+go 1.21
 
-require github.com/hashicorp/hcl/v2 v2.17.0
+require (
+	github.com/charmbracelet/lipgloss v0.7.1
+	github.com/hashicorp/hcl/v2 v2.17.0
+)
 
 require (
 	github.com/agext/levenshtein v1.2.1 // indirect
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
-	github.com/charmbracelet/lipgloss v0.7.1 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
