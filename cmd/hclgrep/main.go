@@ -10,22 +10,19 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/hashicorp/hcl/v2"
-	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"github.com/inkel/hclgrep"
 )
 
-// TODO remove this from global state
-var list bool
-
 func main() {
-	flag.BoolVar(&list, "l", false, "only list filenames with results")
+	var verbose bool
+
+	flag.BoolVar(&verbose, "v", false, "display Terraform body")
 	flag.Parse()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
-	err := realMain(ctx, flag.Args())
+	err := realMain(ctx, verbose, flag.Args())
 	cancel()
 
 	if err != nil {
@@ -34,13 +31,12 @@ func main() {
 	}
 }
 
-func realMain(ctx context.Context, args []string) error {
+func realMain(ctx context.Context, verbose bool, args []string) error {
 	if len(args) == 0 {
 		return errors.New("not enough arguments")
 	}
 
 	pattern, paths := args[0], args[1:]
-	ps := strings.Split(pattern, ".")
 
 	if len(paths) == 0 { // read stdin
 		src, err := io.ReadAll(os.Stdin)
@@ -48,137 +44,72 @@ func realMain(ctx context.Context, args []string) error {
 			return err
 		}
 
-		return grep(os.Stdout, ps, "-", src)
-	}
-
-	walkFn := func(root string) fs.WalkDirFunc {
-		return func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-
-			if d.IsDir() {
-				return nil
-			}
-
-			if filepath.Ext(path) == ".tf" {
-				path := filepath.Join(root, path)
-				src, err := os.ReadFile(path)
-				if err != nil {
-					return err
-				}
-
-				return grep(os.Stdout, ps, path, src)
-			}
-
-			return nil
+		res, err := hclgrep.Grep(pattern, src, "-")
+		if err != nil {
+			return err
 		}
+
+		print(os.Stdout, "-", src, res, verbose)
+
+		return nil
 	}
 
-	for _, path := range paths {
-		fi, err := os.Stat(path)
+	var files []string
+
+	for _, p := range paths {
+		fi, err := os.Stat(p)
 		if err != nil {
 			return err
 		}
 
 		if fi.IsDir() {
-			if err := fs.WalkDir(os.DirFS(path), ".", walkFn(path)); err != nil {
-				return fmt.Errorf("walking %s: %w", path, err)
+			if err := fs.WalkDir(os.DirFS(p), ".", func(path string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				if d.IsDir() {
+					return nil
+				}
+				if filepath.Ext(path) == ".tf" {
+					files = append(files, filepath.Join(p, path))
+				}
+				return nil
+			}); err != nil {
+				return fmt.Errorf("walking: %w", err)
 			}
-		} else {
-			src, err := os.ReadFile(path)
-			if err != nil {
-				return err
-			}
-			if err := grep(os.Stdout, ps, path, src); err != nil {
-				return err
-			}
+
+			continue
 		}
+
+		if filepath.Ext(p) == ".tf" {
+			files = append(files, p)
+		}
+	}
+
+	for _, f := range files {
+		src, err := os.ReadFile(f)
+		if err != nil {
+			return err
+		}
+		res, err := hclgrep.Grep(pattern, src, f)
+		if err != nil {
+			return err
+		}
+
+		print(os.Stdout, f, src, res, verbose)
 	}
 
 	return nil
 }
 
-func find(ps []string, blocks hclsyntax.Blocks) hclsyntax.Blocks {
-	var res hclsyntax.Blocks
+var lf = []byte{'\n'}
 
-	for _, b := range blocks {
-		if ps[0] != "*" && ps[0] != b.Type {
-			continue
-		}
-
-		if len(ps) < 2 {
-			res = append(res, b)
-			continue
-		}
-
-		var pi int
-		var found bool
-
-		for _, l := range b.Labels {
-			pi++
-			found = ps[pi] == "*" || ps[pi] == l
-			if found {
-				break
-			}
-			if len(ps) > pi {
-				break
-			}
-		}
-
-		if !found {
-			continue
-		}
-
-		if len(ps) <= len(b.Labels)+1 {
-			res = append(res, b)
-			continue
-		}
-
-		pi = len(b.Labels) + 1
-
-		for a := range b.Body.Attributes {
-			if ps[pi] == a {
-				res = append(res, b)
-			}
-		}
-
-		if len(find(ps[pi:], b.Body.Blocks)) > 0 {
-			res = append(res, b)
+func print(w io.Writer, path string, src []byte, res []hcl.Range, verbose bool) {
+	for _, r := range res {
+		fmt.Fprintf(w, "%s:%d,%d-%d,%d\n", path, r.Start.Line, r.Start.Column, r.End.Line, r.End.Column)
+		if verbose {
+			w.Write(r.SliceBytes(src))
+			w.Write(lf)
 		}
 	}
-
-	return res
-}
-
-func grep(w io.Writer, ps []string, path string, src []byte) error {
-	f, d := hclsyntax.ParseConfig(src, path, hcl.Pos{Line: 1, Column: 1})
-	if d.HasErrors() {
-		return fmt.Errorf("parsing %s: %s", path, d.Error())
-	}
-
-	blks := find(ps, f.Body.(*hclsyntax.Body).Blocks)
-
-	if list && len(blks) > 0 {
-		fmt.Fprintln(w, path)
-		return nil
-	}
-
-	for _, b := range blks {
-		printFound(w, b, src)
-	}
-
-	return nil
-}
-
-var styleInfo = lipgloss.NewStyle().Bold(true)
-
-func printFound(w io.Writer, b *hclsyntax.Block, src []byte) {
-	r := b.Range()
-
-	fmt.Fprintln(w, styleInfo.Render(fmt.Sprintf("%s:%d:%d:", r.Filename, r.Start.Line, r.Start.Column)))
-
-	bs := r.SliceBytes(src)
-	w.Write(bs)
-	w.Write([]byte{'\n'})
 }
