@@ -36,7 +36,10 @@ func (p pat) Match(b *hclsyntax.Block) (hcl.Range, bool) {
 	}
 
 	var found bool
-	n := min(len(p.ps)-1, len(b.Labels))
+	n := len(p.ps) - 1
+	if l := len(b.Labels); l < n {
+		n = l
+	}
 
 	for _, l := range b.Labels[:n] {
 		p.cur++
