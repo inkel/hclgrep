@@ -106,10 +106,12 @@ var lf = []byte{'\n'}
 
 func print(w io.Writer, path string, src []byte, res []hcl.Range, verbose bool) {
 	for _, r := range res {
-		fmt.Fprintf(w, "%s:%d,%d-%d,%d\n", path, r.Start.Line, r.Start.Column, r.End.Line, r.End.Column)
 		if verbose {
+			fmt.Fprintf(w, "%s @ %d,%d-%d,%d\n", path, r.Start.Line, r.Start.Column, r.End.Line, r.End.Column)
 			w.Write(r.SliceBytes(src)) //nolint:errcheck
-			w.Write(lf)                //nolint:errcheck
+			fmt.Fprintf(w, "\n\n")
+		} else {
+			fmt.Fprintf(w, "%s:%d,%d-%d,%d\n", path, r.Start.Line, r.Start.Column, r.End.Line, r.End.Column)
 		}
 	}
 }
