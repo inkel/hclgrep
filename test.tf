@@ -68,3 +68,11 @@ data "bogus" "foo" {
   }
 }
 
+terraform {
+  required_providers {
+    http = {
+      source  = "hashicorp/http"
+      version = "3.3.0"
+    }
+  }
+}

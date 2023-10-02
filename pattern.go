@@ -35,23 +35,25 @@ func (p pat) Match(b *hclsyntax.Block) (hcl.Range, bool) {
 		return b.Range(), true
 	}
 
-	var found bool
-	n := len(p.ps) - 1
-	if l := len(b.Labels); l < n {
-		n = l
-	}
-
-	for _, l := range b.Labels[:n] {
-		p.cur++
-		m := p.ps[p.cur]
-		found = m == "*" || m == l
-		if !found {
-			break
+	if len(b.Labels) > 0 {
+		var found bool
+		n := len(p.ps) - 1
+		if l := len(b.Labels); l < n {
+			n = l
 		}
-	}
 
-	if !found {
-		return hcl.Range{}, false
+		for _, l := range b.Labels[:n] {
+			p.cur++
+			m := p.ps[p.cur]
+			found = m == "*" || m == l
+			if !found {
+				break
+			}
+		}
+
+		if !found {
+			return hcl.Range{}, false
+		}
 	}
 
 	p.cur++

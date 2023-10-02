@@ -61,6 +61,13 @@ func TestGrep(t *testing.T) {
 				{Line: 49, Column: 3},
 			},
 		},
+
+		"match resource without label": {
+			"terraform.required_providers",
+			[]hcl.Pos{
+				{Line: 72, Column: 3},
+			},
+		},
 	}
 
 	for n, tt := range tests {
