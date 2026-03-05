@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -16,13 +17,17 @@ import (
 )
 
 func main() {
-	var verbose bool
+	var verbosity int
 
-	flag.BoolVar(&verbose, "v", false, "display Terraform body")
+	flag.BoolFunc("v", "Verbosity level", func(_ string) error {
+		verbosity++
+		return nil
+	})
+
 	flag.Parse()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
-	err := realMain(ctx, verbose, flag.Args())
+	err := realMain(ctx, verbosity, flag.Args())
 	cancel()
 
 	if err != nil {
@@ -31,7 +36,7 @@ func main() {
 	}
 }
 
-func realMain(ctx context.Context, verbose bool, args []string) error {
+func realMain(ctx context.Context, verbosity int, args []string) error {
 	if len(args) == 0 {
 		return errors.New("not enough arguments")
 	}
@@ -49,7 +54,7 @@ func realMain(ctx context.Context, verbose bool, args []string) error {
 			return err
 		}
 
-		print(os.Stdout, "-", src, res, verbose)
+		print(os.Stdout, "-", src, res, verbosity)
 
 		return nil
 	}
@@ -96,17 +101,31 @@ func realMain(ctx context.Context, verbose bool, args []string) error {
 			return err
 		}
 
-		print(os.Stdout, f, src, res, verbose)
+		print(os.Stdout, f, src, res, verbosity)
 	}
 
 	return nil
 }
 
-var lf = []byte{'\n'}
+//nolint:errcheck
+func print(w io.Writer, path string, src []byte, res []hcl.Range, verbosity int) {
+	if verbosity == 1 {
+		lines := bytes.Lines(src)
+		line := 0
+		for _, r := range res {
+			for l := range lines {
+				line++
+				if line == r.Start.Line {
+					fmt.Fprintf(w, "%s:%d,%d-%d,%d:%s", path, r.Start.Line, r.Start.Column, r.End.Line, r.End.Column, l)
+					break
+				}
+			}
+		}
+		return
+	}
 
-func print(w io.Writer, path string, src []byte, res []hcl.Range, verbose bool) {
 	for _, r := range res {
-		if verbose {
+		if verbosity >= 2 {
 			fmt.Fprintf(w, "%s @ %d,%d-%d,%d\n", path, r.Start.Line, r.Start.Column, r.End.Line, r.End.Column)
 			w.Write(r.SliceBytes(src)) //nolint:errcheck
 			fmt.Fprintf(w, "\n\n")

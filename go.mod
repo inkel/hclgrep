@@ -1,6 +1,6 @@
 module github.com/inkel/hclgrep
 
-go 1.19
+go 1.23
 
 require github.com/hashicorp/hcl/v2 v2.17.0
 
